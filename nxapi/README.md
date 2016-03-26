@@ -6,26 +6,6 @@ nxapi/nxtool is the new learning tool, that attempts to perform the following :
   * Events management : Allow tagging of events into database to exclude them from wl gen process
   * Reporting : Display information about current DB content
 
-Template, introduced in nxapi is a file containing a JSON dict, used by nxapi to attempt whitelist generation. Templates can be generic or application specific ie.
-
-`
-{
-"zone" : "HEADERS",
-"var_name" : "cookie",
-"id" : "?"}
-`
-
-on the other hand, this is an application-specific template :
-
-`
-{
-"zone" : "ARGS",
-"var_name" : "redirect_to",
-"_statics" : { "id" : "1100,1101"}, 
-"_msg" : "WP post-auth redirect"
-}
-`
-
 # Configuration file : nxapi.json
 
 nxapi uses a JSON file for its settings, such as :
@@ -72,18 +52,32 @@ $ cat nxapi.json
     }
     }
 
+# Prequisites
 
+## Set up ElasticSearch
+* Download the archive with the binary files from https://www.elastic.co/downloads/elasticsearch
+* Extract the archive
+* Start ElasticSearch by executing `bin/elasticsearch` in the extracted folder
+* Check whether ElasticSearch is running correctly:  
+	`curl -XGET http://localhost:9200/`
+* Add a nxapi index with the following command:  
+	`curl -XPUT 'http://localhost:9200/nxapi/'`
+
+## Populating ElasticSearch with data
+* Enable learning mode
+* Browse website to generate data in the logfile
+* Change into nxapi directory
+* Load the data from the log file into ElasticSearch with the folloing command:  
+	`./nxtool.py -c nxapi.json --files=/PATH/TO/LOGFILE.LOG`
+* Check if data was added correctly:  
+	`curl -XPOST "http://localhost:9200/nxapi/events/_search?pretty" -d '{}' `
+* Check if nxtool sees it correctly:
+  	`./nxtool.py -c nxapi.json -x`
 # Simple usage approach
-
-## Checklist
-  * Your ElasticSearch instance is up & running
-  * Your database is running, and you already have some data inside :
-`  curl -XPOST "http://ELASTICSEARCH/nxapi/events/_search?pretty" -d '{}' `
-
 
 ##1. Get infos about db
 
-    $ nxtool.py -x --colors
+    $ ./nxtool.py -x --colors -c nxapi.json
 Will issue a summary of database content, including :
 
   * Ratio between tagged/untagged events.
@@ -106,7 +100,7 @@ List of most active zones of exceptions.
 ##2. Generate whitelists
 Let's say I had the following output :
 
-    nxtool.py -c ./nxapi.json  -x --colors
+    ./nxtool.py -c nxapi.json  -x --colors
     # Whitelist(ing) ratio :
     # false 79.96 % (total:196902/246244)
     # true 20.04 % (total:49342/246244)
@@ -132,7 +126,7 @@ Let's say I had the following output :
 
 I want to generate WLs for x1.fr, so I will get more precise statistics first :
 
-    nxtool.py -c ./nxapi.json  -x --colors -s www.x1.fr
+    ./nxtool.py -c nxapi.json  -x --colors -s www.x1.fr
     ...
     # Top URI(s) :
     # /foo/bar/test 8.55 % (total:16831/196915)
@@ -140,13 +134,14 @@ I want to generate WLs for x1.fr, so I will get more precise statistics first :
     ...
 
 I will then attempt to generate whitelists for the `/foo/bar/test` page, that seems to trigger most events :
+
 `Take note of the --filter option, that allows me to work whitelists only for this URI.
-Filters can specify any field : var_name, zone, uri, id, whitelisted, content, date ...
+Filters can specify any field : var_name, zone, uri, id, whitelisted, content, country, date ...
 However, take care, they don't support regexp yet.
 Take note as well of --slack usage, that allows to ignore success/warning criterias, as my website has too few
 visitors, making legitimate exceptions appear as false positives.`
 
-    nxtool.py -c nxapi.json -s www.x1.fr -f --filter 'uri /foo/bar/test' --slack
+    ./nxtool.py -c nxapi.json -s www.x1.fr -f --filter 'uri /foo/bar/test' --slack
     ...
     #msg: A generic whitelist, true for the whole uri
     #Rule (1303) html close tag
@@ -170,8 +165,30 @@ nxtool attempts to provide extra information to allow user to decides wether it'
   * var_name : exemple(s) of variable names in which the content was triggered
   * success and warnings : nxapi will inform provide you scoring informations (see 'scores').
 
+##3. Interactive whitelist generation
 
-##3. Tagging events
+Another way of creating whitelist is to use the -g option. This option provide
+an interactive way to generate whitelist. This option use the EDITOR env
+variable and use it to iterate over all the server available inside your elastic
+search instance (if the EDITOR env variable isn't set it will try to use `vi`.
+You can either delete or comment with a `#` at the beginning the line you don't
+want to keep. After the server selection it will iterate on each available uri
+and zone for earch server. If you want to use regex, only available for uri,
+you can add a `?` at the beginning of each line where you want to use a regex:
+
+    uri /fr/foo/ ...
+    ?uri /[a-z]{2,}/foo ...
+
+The -g options once all the selection over will attempt to generate the wl
+with the same behaviour as -f option, and write the result inside the path the
+typical output when generating wl is:
+
+    generating wl with filters {u'whitelisted': u'false', 'uri': '/fr/foo', 'server': 'x.com'}
+    Writing in file: /tmp/server_x.com_0.wl
+
+As you can see you'll see each filter and each file for each selections.
+
+##4. Tagging events
 
 Once I chose the whitelists that I think are appropriate, I will write them down to a whitelist file. 
 Then, I can tag corresponding events :
@@ -205,7 +222,8 @@ I'm dealing with magento, like a *lot*. One of the recurring patterns is the "on
         "_msg" : "Magento checkout page (BODY|NAME)",
         "?uri" : "/checkout/onepage/.*",
         "zone" : "BODY|NAME",
-        "id" : "1310 OR 1311"}
+        "id" : "1310 OR 1311"
+    }
 
 
 # Supported options
@@ -220,6 +238,8 @@ Allows to restrict context of whitelist generation or stats display to specific 
 
 A filter (in the form of a dict) to merge with 
 existing templates/filters: 'uri /foobar zone BODY'.
+You can combine several filters, for example : `--filter "country FR" --filter "uri /foobar"`.
+
 
 ## Whitelist generation options
 
@@ -284,15 +304,16 @@ Templates do have a central role within nxapi.
 By default, only generic ones are provided, but you should create yours.
 Let's first look at a generic one to understand how it work :
 
-      {
-      "zone" : "HEADERS",
-      "var_name" : "cookie",
-      "id" : "?"}
+        {
+                "zone" : "HEADERS",
+                "var_name" : "cookie",
+                "id" : "?"
+        }
 
 Here is how nxtool will use this to generate whitelists:
   1. extract global_filters from nxapi.json, and create the base ES filter :
      { "whitelisted" : "false" }
-  2. merge base ES filter with provided cmd line filter (--filter)
+  2. merge base ES filter with provided cmd line filter (--filter, -s www.x1.fr)
      { "whitelisted" : "false", "server" : "www.x1.fr" }
   3. For each static field of the template, merge it in base ES filter :
      { "whitelisted" : "false", "server" : "www.x1.fr", "zone" : "HEADERS", "var_name" : "cookie" }
@@ -316,8 +337,63 @@ Templates support :
   * `"_success" : { ... }` : A dict supplied to overwrite/complete 'global' scoring rules.
   * `"_warnings" : { ... }` : A dict supplied to overwrite/complete 'global' scoring rules.
 
+
+# Understanding scoring
+
 Scoring mecanism :
- TBD.
+  * Scoring mecanism is a very trivial approach, relying on 3 kinds of "scoring" expressions : _success, _warning, _deny.
+  * Whenever a _success rule is met while generating a whitelist, it will INCREASE the "score" of the whitelist by 1.
+  * Whenever a _warning rule is met while generating a whitelist, it will DECREASE the "score" of the whitelist by 1.
+  * Whenever a _deny rule is met while generating a whitelist, it will disable the whitelist output.
+
+_note:_
+In order to understand scoring mecanism, it is crucial to get the difference between a template and a rule.
+A template with the .json file, which can match many events. A rule is usually a subpart of a template results.
+For example, if we have this data : 
+
+    [ {"id" : 1, "zone" : HEADERS, ip:A.A.A.A},
+      {"id" : 2, "zone" : HEADERS, ip:A.A.A.A},
+      {"id" : 1, "zone" : ARGS, ip:A.B.C.D}
+    ]
+
+
+And this template :
+
+    {"id" : 1, "zone" : "?"}
+
+Well, template_ip would be 2, as 2 peers triggered events with ID:1.
+However, rule_ip would be 1, as the two generated rules ('id:1 mz:ARGS' and 'id:1 mz:HEADERS'),
+were triggered each by one unique peer.
+
+If --slack is present, scoring is ignored, and all possible whitelists are displayed.
+In normal conditions, whitelists with more than 0 points are displayed.
+The default filters enabled in nxapi, from nxapi.json :
+
+
+    "global_warning_rules" : {
+      "rule_ip" : ["<=", 10 ],
+      "global_rule_ip_ratio" : ["<", 5]
+      },
+    "global_success_rules" : {
+      "global_rule_ip_ratio" : [">=", 10],
+      "rule_ip" : [">=", 10]
+      },
+    "global_deny_rules" : {
+     "global_rule_ip_ratio" : ["<", 2]
+      },
+
+
+  * rule_N <= X : "at least" X uniq(N) where present in the specific events from which the WL is generated.
+    * '"rule_ip" : ["<=", 10 ],' : True if less than 10 unique IPs hit the event
+    * '"rule_var_name" : [ "<=", "5" ]' : True if less than 5 unique variable names hit the event
+  * template_N <= X : "at least" X uniq(N) where present in the specific events from which the WL is generated.
+    * Note the difference with "rule_X" rules. 
+  * global_rule_ip_ratio < X : "at least" X% of the users that triggered events triggered this one as well.
+    * however, ration can theorically apply to anything, just ip_ratio is the most common.
+
+
+
+
 
 
 

@@ -1,42 +1,106 @@
-CORE_VERS	 :=	$(shell grep NAXSI_VERSION naxsi.h | cut -d '"' -f 2)
-UTIL_VERS :=	$(shell grep version ../nx_util/setup.py | cut -d "'" -f2)
-MOD_PATH :=	$(shell pwd)
-#Enables lcov for unit test code coverage
-COV := 1
-#TEST := "23*.t"
+CORE_VERS	:=	$(shell grep NAXSI_VERSION naxsi.h | cut -d '"' -f 2)
+MOD_PATH 	:=	$(shell pwd)
+TMP_DIR     := /tmp/nginx/
+
+# Keys for coverity
+CAN		:=
+CAK		:=
+
+#Set to 1 if you want coverage report
+COV 		:= 0
+
+#Allows to force for specific UT only
+#TEST 		:= "00*.t"
+NGINX_VERS := "1.9.11"
+
+NGINX_OPTIONS="--error-log-path=/tmp/naxsi_ut/error.log"
+NGINX_OPTIONS+="--conf-path=/tmp/naxsi_ut/nginx.conf"
+NGINX_OPTIONS+="--http-client-body-temp-path=/tmp/naxsi_ut/body/"
+NGINX_OPTIONS+="--http-fastcgi-temp-path=/tmp/naxsi_ut/fastcgi/"
+NGINX_OPTIONS+="--http-log-path=/tmp/naxsi_ut/access.log"
+NGINX_OPTIONS+="--http-proxy-temp-path=/tmp/naxsi_ut/proxy/"
+NGINX_OPTIONS+="--lock-path=/tmpnginx.lock"
+NGINX_OPTIONS+="--pid-path=/tmp/naxsi_ut/nginx.pid"
+NGINX_OPTIONS+="--modules-path=/tmp/naxsi_ut/modules/"
+NGINX_OPTIONS+="--with-http_ssl_module"
+NGINX_OPTIONS+="--without-mail_pop3_module"
+NGINX_OPTIONS+="--without-mail_smtp_module"
+NGINX_OPTIONS+="--without-mail_imap_module"
+NGINX_OPTIONS+="--without-http_uwsgi_module"
+NGINX_OPTIONS+="--without-http_scgi_module"
+NGINX_OPTIONS+="--add-dynamic-module=$(MOD_PATH)"
+NGINX_OPTIONS+="--with-ipv6"
+NGINX_OPTIONS+="--prefix=/tmp"
+NGINX_OPTIONS+="--with-debug"
+
+
+all: nginx_download configure build install deploy
+
+re: clean all test
+
+clean:
+	rm -f "nginx-"$(NGINX_VERS)".tar.gz"
+	rm -f "nginx-"$(NGINX_VERS)".tar.gz.asc"
+	rm -rf /tmp/naxsi_ut/
+	rm -rf $(TMP_DIR)/
+
+nginx_download:
+	wget --no-clobber "http://nginx.org/download/nginx-"$(NGINX_VERS)".tar.gz" || exit 1
+	wget --no-clobber "http://nginx.org/download/nginx-"$(NGINX_VERS)".tar.gz.asc" || exit 1
+	gpg --keyserver pgp.mit.edu --recv-keys 0x251a28de2685aed4 0x520A9993A1C052F8
+	gpg --verify "nginx-"$(NGINX_VERS)".tar.gz.asc" "nginx-"$(NGINX_VERS)".tar.gz" || exit 1
+	mkdir -p $(TMP_DIR)/
+	tar -C $(TMP_DIR)/ -xvzf nginx-$(NGINX_VERS).tar.gz  --strip-components=1
+
+configure:
+ifeq ($(COV),1)
+	cd $(TMP_DIR)/ && ./configure --with-cc-opt="--coverage -g3" --with-ld-opt="-lgcov" $(NGINX_OPTIONS)
+else
+	cd $(TMP_DIR)/ && ./configure $(NGINX_OPTIONS)
+endif
+
 build:
-	@if test -d /tmp/nginx ; then \
-		cd /tmp/nginx && make; \
-	else \
-		echo "nginx source tree must be in /tmp/nginx"; \
-	fi
+	cd $(TMP_DIR)/ && make
+
+install:
+	cd $(TMP_DIR)/ && make install
+
+deploy: 
+	@cp ./nginx.conf.example /tmp/naxsi_ut/nginx.conf
+	@cp ../naxsi_config/naxsi_core.rules /tmp/naxsi_ut/naxsi_core.rules
 
 
+# RUN UNIT TESTS
 test:
-	@if [ $(COV) -eq 1 ] ; then  \
-	echo "[!] BUILDING WITH -LGCOV" ; \
-	lcov --directory /tmp/nginx --zerocounters ; fi
-	@export PATH="/tmp/nginx/objs/:"$(PATH) ; \
+ifeq ($(COV),1)
+	lcov --directory $(TMP_DIR) --zerocounters
+endif
+
+	if [ ! $(TEST) ] ; then TEST="*.t" ; fi
+
+	export PATH="$(TMP_DIR)/objs/:"$(PATH) ; \
 	export PERL5LIB=/usr/local/share/perl/5.14.2/ ; \
-	cd .. ; echo "-->" $(TEST) ; \
-	if [ $(TEST) ] ; then prove -r "t/$(TEST)" ; else \
-	prove -r t/*.t ; fi
-	@if [ $(COV) -eq 1 ] ; then \
-	lcov --directory /tmp/nginx/objs/addon/naxsi_src/ --capture --output-file naxsi.info --base-directory /tmp/nginx ; \
-	genhtml -s -o /tmp/naxsicov.html naxsi.info ; \
-	echo "Coverage report is in /tmp/naxsicov.html" ; fi
+	cd .. ; prove -r "t/$(TEST)"
 
-re:
-	@echo "Nginx source tree : /tmp/nginx" 
-	@if [ $(COV) -eq 1 ] ; then echo "[!] BUILDING WITH -LGCOV" ; \
-	cd /tmp/nginx && ./configure --with-cc-opt="--coverage" --with-ld-opt=-lgcov  --conf-path=/tmp/naxsi_ut/nginx.conf  --add-module=$(MOD_PATH) --error-log-path=/tmp/naxsi_ut/error.log     --http-client-body-temp-path=/tmp/naxsi_ut/body/     --http-fastcgi-temp-path=/tmp/naxsi_ut/fastcgi/     --http-log-path=/tmp/naxsi_ut/access.log     --http-proxy-temp-path=/tmp/naxsi_ut/proxy/     --lock-path=/tmpnginx.lock     --pid-path=/tmp/naxsi_ut/nginx.pid     --with-http_ssl_module     --without-mail_pop3_module     --without-mail_smtp_module     --without-mail_imap_module     --without-http_uwsgi_module     --without-http_scgi_module     --with-ipv6  --prefix=/tmp --with-debug && make \
-	; else cd /tmp/nginx && ./configure --with-cc-opt="--O0" --with-ld-opt=-lgcov  --conf-path=/tmp/naxsi_ut/nginx.conf  --add-module=$(MOD_PATH) --error-log-path=/tmp/naxsi_ut/error.log     --http-client-body-temp-path=/tmp/naxsi_ut/body/     --http-fastcgi-temp-path=/tmp/naxsi_ut/fastcgi/     --http-log-path=/tmp/naxsi_ut/access.log     --http-proxy-temp-path=/tmp/naxsi_ut/proxy/     --lock-path=/tmpnginx.lock     --pid-path=/tmp/naxsi_ut/nginx.pid     --with-http_ssl_module     --without-mail_pop3_module     --without-mail_smtp_module     --without-mail_imap_module     --without-http_uwsgi_module     --without-http_scgi_module     --with-ipv6  --prefix=/tmp --with-debug && make ; fi
+ifeq ($(COV),1)
+	lcov --directory $(TMP_DIR)/objs/addon/naxsi_src/ --capture --output-file naxsi.info --base-directory $(TMP_DIR)
+	genhtml -s -o /tmp/naxsicov.html naxsi.info
+endif
 
-
-
-deploy:
-	@cd /tmp/nginx && make install
-	@cat /tmp/naxsi_ut/nginx.conf | grep -v '#' | sed -e 's@http {@http {\ninclude /etc/nginx/naxsi_core.rules;\n@' | sed -e 's@listen.*80;@listen 4242;@' | sed '1i\master_process off;' > /tmp/naxsi_ut/nginx.conf.tmp
-	@cat /tmp/naxsi_ut/nginx.conf.tmp | sed  's@location / {@location / {\nLearningMode;\nSecRulesEnabled;\nDeniedUrl "/50x.html";\nCheckRule "$$SQL >= 8" BLOCK;\nCheckRule "$$RFI >= 8" BLOCK;\nCheckRule "$$TRAVERSAL >= 4" BLOCK;\nCheckRule "$$EVADE >= 4" BLOCK;\nCheckRule "$$XSS >= 8" BLOCK;\nerror_log /tmp/ngx_error.log debug;\naccess_log /tmp/ngx_access.log;\n@'  > /tmp/naxsi_ut/nginx.conf
-	@mkdir -p /tmp/naxsi_ut/body/ /tmp/naxsi_ut/fastcgi/ /tmp/naxsi_ut/proxy/ 
-
+#Build for coverity and submit build !
+coverity: 
+	@CAK=$(shell cat ../../coverity.key | cut -d ':' -f2) ; \
+	CAN=$(shell cat ../../coverity.key | cut -d ':' -f1) ; \
+	echo "Coverity token/login : $$CAK and $$CAN"; \
+	wget -nc  https://scan.coverity.com/download/linux-64 --post-data "token=$$CAK&project=nbs-system%2Fnaxsi" -O /tmp/coverity.tgz ; \
+	mkdir /tmp/cov && cd /tmp/cov && cat ../coverity.tgz  | tar --strip-components=1 -xvzf - ; \
+	cd $(TMP_DIR) ; \
+	./configure $(NGINX_OPTIONS) && \
+	/tmp/cov/bin/cov-build --dir cov-int make && \
+	tar cvzf coverity-res-naxsi.tgz cov-int/ ; \
+	curl --form token="$$CAK" \
+	  --form email="$$CAN" \
+	  --form file=@$(TMP_DIR)/coverity-res-naxsi.tgz \
+	  --form version="$(CORE_VERS)" \
+	  --form description="Automatically submitted" \
+	  https://scan.coverity.com/builds?project=nbs-system%2Fnaxsi

@@ -29,8 +29,10 @@ __DATA__
 --- user_files
 >>> foobar
 eh yo
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
 	 #LearningMode;
@@ -82,8 +84,10 @@ buibuibuib
 --- user_files
 >>> foobar
 eh yo
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
 	 #LearningMode;
@@ -131,8 +135,10 @@ Content-Type: application/octet-stream\r
 --- user_files
 >>> foobar
 eh yo
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
 	 #LearningMode;
@@ -182,8 +188,10 @@ Content-Type: text/plain\r
 --- user_files
 >>> foobar
 eh yo
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
 	 #LearningMode;
@@ -233,8 +241,10 @@ Content-Type: application/x-httpd-php\r
 --- user_files
 >>> foobar
 eh yo
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
 	 #LearningMode;
@@ -285,8 +295,10 @@ Content-Type: application/x-httpd-php\r
 --- user_files
 >>> foobar
 eh yo
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
 	 #LearningMode;
@@ -337,8 +349,10 @@ Content-Type: application/octet-stream\r
 --- user_files
 >>> foobar
 eh yo
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
 	 #LearningMode;
@@ -390,8 +404,10 @@ Content-Type: application/octet-stream\r
 --- user_files
 >>> foobar
 eh yo
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
 	 #LearningMode;
@@ -443,8 +459,10 @@ Content-Type: application/octet-stream\r
 --- user_files
 >>> foobar
 eh yo
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
 	 #LearningMode;
@@ -497,8 +515,10 @@ Content-Type: application/octet-stream\r
 --- user_files
 >>> foobar
 eh yo
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
 	 #LearningMode;
@@ -550,8 +570,10 @@ Content-Type: application/octet-stream\r
 --- user_files
 >>> foobar
 eh yo
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
 	 #LearningMode;
@@ -604,8 +626,10 @@ Content-Type: application/octet-stream\r
 --- user_files
 >>> foobar
 eh yo
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
 	 #LearningMode;
@@ -658,8 +682,10 @@ Content-Type: application/octet-stream\r
 --- user_files
 >>> foobar
 eh yo
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
 	 #LearningMode;
@@ -709,8 +735,10 @@ Content-Type: application/octet-stream\r
 --- user_files
 >>> foobar
 eh yo
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
 	 #LearningMode;
@@ -759,8 +787,10 @@ Content-Type: application/octet-stream\r
 --- user_files
 >>> foobar
 eh yo
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
 	 #LearningMode;
@@ -809,8 +839,10 @@ Content-Type: application/octet-stream\r
 --- user_files
 >>> foobar
 eh yo
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
 	 #LearningMode;
@@ -861,8 +893,10 @@ Content-Type: application/octet-stream\r
 --- user_files
 >>> foobar
 eh yo
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
 	 #LearningMode;
@@ -915,8 +949,10 @@ buibuibuib
 --- user_files
 >>> foobar
 eh yo
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
 	 #LearningMode;

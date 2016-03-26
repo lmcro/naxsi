@@ -1,6 +1,19 @@
+<img alt="naxsi logo" src="https://www.nbs-system.com/wp-content/uploads/nbs-logo-naxsi1.png" align="center"/>   
+
+
 <a href="https://scan.coverity.com/projects/1883">
   <img alt="Coverity Scan Build Status"
-       src="https://scan.coverity.com/projects/1883/badge.svg"/>
+      src="https://scan.coverity.com/projects/1883/badge.svg"/>
+</a>
+
+<a href="https://travis-ci.org/nbs-system/naxsi">
+  <img alt="Travis Build Status"
+      src="https://travis-ci.org/nbs-system/naxsi.svg"/>
+</a>
+
+<a href="http://codecov.io/github/nbs-system/naxsi?branch=master">
+  <img alt="Coverage via codecov.io" 
+      src="http://codecov.io/github/nbs-system/naxsi/coverage.svg?branch=master"/>
 </a>
 
 
@@ -11,12 +24,13 @@
 
 ## What is Naxsi?
 
-NAXSI means Nginx Anti Xss & Sql Injection. 
+NAXSI means [Nginx]( http://nginx.org/ ) Anti [XSS]( https://www.owasp.org/index.php/Cross-site_Scripting_%28XSS%29 ) & [SQL Injection]( https://www.owasp.org/index.php/SQL_injection ). 
 
 Technically, it is a third party nginx module, available as a package for
 many UNIX-like platforms. This module, by default, reads a small subset of
-simple rules (naxsi_core.rules) containing 99% of known patterns involved in
-websites vulnerabilities. For example, '<', '|' or 'drop' are not supposed
+[simple (and readable) rules]( https://github.com/nbs-system/naxsi/blob/master/naxsi_config/naxsi_core.rules )
+containing 99% of known patterns involved in
+websites vulnerabilities. For example, `<`, `|` or `drop` are not supposed
 to be part of a URI.
 
 Being very simple, those patterns may match legitimate queries, it is
@@ -34,26 +48,12 @@ is to add required ACCEPT rules for the target website to work properly.
 On the contrary of most Web Application Firewall, Naxsi doesn't rely on a
 signature base, like an antivirus, and thus cannot be circumvented by an
 "unknown" attack pattern. Another main difference between Naxsi and other
-WAF, Naxsi filters Get & Posts resquests and is OpenSource and free to use
-for your company or personal own use (ie: as long as you don't resell a
-service or product based on Naxsi to customers).
+WAF, Naxsi filters only GET and POST resquests,
+is a [Free software]( https://www.gnu.org/licenses/gpl.html ) (as in freedom)
+and free (as in free beer) to use.
 
 ### Getting started
 
-#### Wiki
-
-See the [wiki](https://github.com/nbs-system/naxsi/wiki)
-
-
-#### Performance reviews
-
-  * [See how Naxsi performs against a highly vulnerable web site](https://github.com/nbs-system/naxsi/wiki/NaxsiVsAppScan) 
-  * [See how Naxsi performs vs Obfuscated|Complex SQLi patterns](https://github.com/nbs-system/naxsi/wiki/naxsivsobfuscated)
-
-### We need you !
-
- * Performance, stability testing: we are looking for independent reviews, benchmarks, and related feedback
- * Security testing: we prepared a running [testing environment](http://github.com/nbs-system/naxsi/wiki/OnlyTrustWhatYouCanTest) for you to play with. Go, play, (try to) bypass!
- * Post feature requests, documentation improvements
- * Bug reports: [Naxsi is young, there are known bugs](https://github.com/nbs-system/naxsi/wiki/KnownBugs)
-
+- The [documentation](https://github.com/nbs-system/naxsi/wiki)
+- Some [rules]( https://github.com/nbs-system/naxsi-rules ) for mainstream softwares
+- The [nxapi/nxtool]( https://github.com/nbs-system/naxsi/tree/master/nxapi ) to generate rules

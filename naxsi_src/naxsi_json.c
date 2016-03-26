@@ -1,6 +1,6 @@
 /*
  * NAXSI, a web application firewall for NGINX
- * Copyright (C) 2011, Thibault 'bui' Koechlin
+ * Copyright (C) 2016, Thibault 'bui' Koechlin
  *  
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,7 +31,7 @@
 
 #include "naxsi.h"
 
-//#define naxsi_json_debug 1
+//#define _debug_json 1
 
 ngx_http_rule_t nx_int__invalid_json = {/*type*/ 0, /*whitelist flag*/ 0, 
 					/*wl_id ptr*/ NULL, /*rule_id*/ 15,
@@ -161,10 +161,8 @@ ngx_http_nx_json_val(ngx_json_t *js) {
 	  ngx_http_basestr_ruleset_n(js->r->pool, &js->ckey, &val,
 				     js->main_cf->body_rules, js->r, js->ctx, 
 				     BODY);
-#ifdef naxsi_json_debug
-	ngx_log_debug(NGX_LOG_DEBUG_HTTP, js->r->connection->log, 0, "JSON '%V' : '%V'",
-		      &(js->ckey), &(val));
-#endif
+	NX_DEBUG(_debug_json, NGX_LOG_DEBUG_HTTP, js->r->connection->log, 0, "JSON '%V' : '%V'",
+		 &(js->ckey), &(val));
       }
     return (ret);
   }
@@ -184,10 +182,8 @@ ngx_http_nx_json_val(ngx_json_t *js) {
       ngx_http_basestr_ruleset_n(js->r->pool, &js->ckey, &val,
 				 js->main_cf->body_rules, js->r, js->ctx, 
 				 BODY);
-#ifdef naxsi_json_debug
-    ngx_log_debug(NGX_LOG_DEBUG_HTTP, js->r->connection->log, 0, "JSON '%V' : '%V'",
-		  &(js->ckey), &(val));
-#endif    
+    NX_DEBUG(_debug_json, NGX_LOG_DEBUG_HTTP, js->r->connection->log, 0, "JSON '%V' : '%V'",
+	     &(js->ckey), &(val));
     return (NGX_OK);
   }
   if (!strncasecmp((const char *) (js->src + js->off), (const char *) "true", 4) ||
@@ -213,10 +209,8 @@ ngx_http_nx_json_val(ngx_json_t *js) {
       ngx_http_basestr_ruleset_n(js->r->pool, &js->ckey, &val,
 				 js->main_cf->body_rules, js->r, js->ctx, 
 				 BODY);
-#ifdef naxsi_json_debug
-    ngx_log_debug(NGX_LOG_DEBUG_HTTP, js->r->connection->log, 0, "JSON '%V' : '%V'",
-		  &(js->ckey), &(val));
-#endif        
+    NX_DEBUG(_debug_json, NGX_LOG_DEBUG_HTTP, js->r->connection->log, 0, "JSON '%V' : '%V'",
+	     &(js->ckey), &(val));
     return (NGX_OK);
   }
   
@@ -340,9 +334,7 @@ ngx_http_dummy_json_parse(ngx_http_request_ctx_t *ctx,
   }
   if (ngx_http_nx_json_obj(js) != NGX_OK) {
     ngx_http_apply_rulematch_v_n(&nx_int__invalid_json, ctx, r, NULL, NULL, BODY, 1, 0);
-#ifdef naxsi_json_debug
-    ngx_log_debug(NGX_LOG_DEBUG_HTTP, js->r->connection->log, 0, "nx_json_obj returned error, apply invalid_json.");
-#endif        
+    NX_DEBUG(_debug_json, NGX_LOG_DEBUG_HTTP, js->r->connection->log, 0, "nx_json_obj returned error, apply invalid_json.");
     
   }
   /* we are now on closing bracket, check for garbage. */

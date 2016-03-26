@@ -7,6 +7,7 @@ import pprint
 import shlex
 import datetime
 import glob
+import sys
 
 from nxtypificator import Typificator
 
@@ -178,72 +179,85 @@ class NxTranslate():
         self.es_max_size = self.cfg.get("elastic").get("max_size", 1000)
         print "# size :"+str(self.es_max_size)
         # purely for output coloring
-        self.red = '{0}'
-        self.grn = '{0}'
-        self.blu = '{0}'
+        self.red = u'{0}'
+        self.grn = u'{0}'
+        self.blu = u'{0}'
         if self.cfg["output"]["colors"] == "true":
-            self.red = "\033[91m{0}\033[0m"
-            self.grn = "\033[92m{0}\033[0m"
-            self.blu = "\033[94m{0}\033[0m"
+            self.red = u"\033[91m{0}\033[0m"
+            self.grn = u"\033[92m{0}\033[0m"
+            self.blu = u"\033[94m{0}\033[0m"
         # Attempt to parse provided core rules file
         self.load_cr_file(self.cfg["naxsi"]["rules_path"])
 
-    def full_auto(self):
+    def full_auto(self, to_fill_list=None):
         """ Loads all tpl within template_path
         If templates has hit, peers or url(s) ratio > 15%,
         attempts to generate whitelists.
         Only displays the wl that did not raise warnings, ranked by success"""
-        
+
         # gather total IPs, total URIs, total hit count
         scoring = NxRating(self.cfg, self.es, self)
-        
+
         strict = True
         if self.cfg.get("naxsi").get("strict", "") == "false":
             strict = False
 
         scoring.refresh_scope("global", self.cfg["global_filters"])
         if scoring.get("global", "ip") <= 0:
-            print "No hits for this filter."
-            return
+            return []
+        output = []
         for sdir in self.cfg["naxsi"]["template_path"]:
             for root, dirs, files in os.walk(sdir):
                 for file in files:
                     if file.endswith(".tpl"):
-                        print "# "+self.grn.format(" template :")+root+"/"+file+" "
+                        output.append("# {0}{1}/{2} ".format(
+                            self.grn.format(" template :"),
+                            root,
+                            file
+                        ))
                         template = self.load_tpl_file(root+"/"+file)
                         scoring.refresh_scope('template', self.tpl2esq(template))
-                        print "Nb of hits :"+str(scoring.get('template', 'total'))
+                        output.append("Nb of hits : {0}".format(scoring.get('template', 'total')))
                         if scoring.get('template', 'total') > 0:
-                            print self.grn.format("#  template matched, generating all rules.")
+                            output.append('{0}'.format(self.grn.format("#  template matched, generating all rules.")))
                             whitelists = self.gen_wl(template, rule={})
-                            #x add here 
-                            print str(len(whitelists))+" whitelists ..."
+                            # x add here
+                            output.append('{0}'.format(len(whitelists))+" whitelists ...")
                             for genrule in whitelists:
                                 scoring.refresh_scope('rule', genrule['rule'])
                                 results = scoring.check_rule_score(template)
-                                #XX1
-                                if ( len(results['success']) > len(results['warnings']) and results["deny"] == False) or self.cfg["naxsi"]["strict"] == "false":
-                                    #print "?deny "+str(results['deny'])
-                                    self.fancy_display(genrule, results, template)
-                                    print self.grn.format(self.tpl2wl(genrule['rule']).encode('utf-8', errors='replace'), template)
-
+                                # XX1
+                                if (len(results['success']) > len(results['warnings']) and results["deny"] == False) or self.cfg["naxsi"]["strict"] == "false":
+                                    # print "?deny "+str(results['deny'])
+                                    try:
+                                        str_genrule = '{0}'.format(self.grn.format(self.tpl2wl(genrule['rule']).encode('utf-8', 'replace'), template))
+                                    except UnicodeDecodeError:
+                                        logging.warning('WARNING: Unprocessable string found in the elastic search')
+                                    output.append(self.fancy_display(genrule, results, template))
+                                    output.append(str_genrule)
+                                    if to_fill_list is not None:
+                                        genrule.update({'genrule': str_genrule})
+                                        to_fill_list.append(genrule)
+        return output
 
     def wl_on_type(self):
         for rule in Typificator(self.es, self.cfg).get_rules():
             print 'BasicRule negative "rx:{0}" "msg:{1}" "mz:${2}_VAR:{3}" "s:BLOCK";'.format(*rule)
-                                
+
     def fancy_display(self, full_wl, scores, template=None):
+        output = []
         if template is not None and '_msg' in template.keys():
-            print "#msg: "+template['_msg']
+            output.append("#msg: {0}\n".format(template['_msg']))
         rid = full_wl['rule'].get('id', "0")
-        print "#Rule ("+rid+") "+self.core_msg.get(rid, 'Unknown ..')
+        output.append("#Rule ({0}) {1}\n".format(rid, self.core_msg.get(rid, 'Unknown ..')))
         if self.cfg["output"]["verbosity"] >= 4:
-            print "#total hits "+str(full_wl['total_hits'])
-            for x in [ "content", "peers", "uri", "var_name" ]:
-                if not x in full_wl.keys():
+            output.append("#total hits {0}\n".format(full_wl['total_hits']))
+            for x in ["content", "peers", "uri", "var_name"]:
+                if x not in full_wl.keys():
                     continue
                 for y in full_wl[x]:
-                    print "#"+x+" : "+unicode(y).encode("utf-8", errors='replace')
+                    output.append("#{0} : {1}\n".format(x, unicode(y).encode("utf-8", 'replace')))
+        return ''.join(output)
 
 #        pprint.pprint(scores)
         for x in scores['success']:
@@ -326,7 +340,7 @@ class NxTranslate():
                     self.core_msg[i[pos + 3:i[pos + 3].find(';') - 1]] = i[pos_msg + 4:][:i[pos_msg + 4:].find('"')]
             fd.close()
         except:
-            logging.error("Unable to open rules file")
+            logging.warning("Unable to open rules file")
     def tpl2esq(self, ob, full=True):
         ''' receives template or a rule, returns a valid 
         ElasticSearch query '''
@@ -386,6 +400,10 @@ class NxTranslate():
             return [False, "not a BasicRule"]
         # split line
         strings = shlex.split(raw_line)
+        # bug #194 - drop everything after the first chunk starting with a '#' (inline comments)
+        for x in strings:
+            if x.startswith('#'):
+                strings = strings[:strings.index(x)]
         # more checks
         if len(strings) < 3:
             return [False, "empty/incomplete line"]
@@ -521,25 +539,70 @@ class NxTranslate():
         esq = self.tpl2esq(template)
         if x is not None:
             template[field] = x
-        esq['facets'] =  { "facet_results" : {"terms": { "field": field, "size" : self.es_max_size} }}
+        if self.cfg["elastic"].get("version", None) == "1":
+            esq['facets'] =  { "facet_results" : {"terms": { "field": field, "size" : self.es_max_size} }}
+        elif self.cfg["elastic"].get("version", None) == "2":
+            esq['aggregations'] =  { "agg1" : {"terms": { "field": field, "size" : self.es_max_size} }}
+        else:
+            print "Unknown / Unspecified ES version in nxapi.json : {0}".format(self.cfg["elastic"].get("version", "#UNDEFINED"))
+            sys.exit(1)
+            
         res = self.search(esq)
-        total = res['facets']['facet_results']['total']
+
+        if self.cfg["elastic"].get("version", None) == "1":
+            total = res['facets']['facet_results']['total']
+        elif self.cfg["elastic"].get("version", None) == "2":
+            total = res['hits']['total']
+        else:
+            print "Unknown / Unspecified ES version in nxapi.json : {0}".format(self.cfg["elastic"].get("version", "#UNDEFINED"))
+            sys.exit(1)
+
         count = 0
-        for x in res['facets']['facet_results']['terms']:
-            print "# "+self.grn.format(x['term'])+" "+str(round( (float(x['count']) / total) * 100.0, 2))+" % (total:"+str(x['count'])+"/"+str(total)+")"
-            count += 1
-            if count > limit:
-                break
+        ret = []
+        if self.cfg["elastic"].get("version", None) == "1":
+            for x in res['facets']['facet_results']['terms']:
+                ret.append('{0} {1}% (total: {2}/{3})'.format(x['term'], round((float(x['count']) / total) * 100, 2), x['count'], total))
+                count += 1
+                if count > limit:
+                    break
+        elif self.cfg["elastic"].get("version", None) == "2":
+            for x in res['aggregations']['agg1']['buckets']:
+                ret.append('{0} {1}% (total: {2}/{3})'.format(x['key'], round((float(x['doc_count']) / total) * 100, 2), x['doc_count'], total))
+                count += 1
+                if count > limit:
+                    break
+        else:
+            print "Unknown / Unspecified ES version in nxapi.json : {0}".format(self.cfg["elastic"].get("version", "#UNDEFINED"))
+            sys.exit(1)
+        return ret
+
     def fetch_uniques(self, rule, key):
         """ shortcut function to gather unique
         values and their associated match count """
         uniques = []
         esq = self.tpl2esq(rule)
-        esq['facets'] =  { "facet_results" : {"terms": { "field": key, "size" : 50000} }}
+        #
+        if self.cfg["elastic"].get("version", None) == "1":
+            esq['facets'] =  { "facet_results" : {"terms": { "field": key, "size" : 50000} }}
+        elif self.cfg["elastic"].get("version", None) == "2":
+            esq['aggregations'] =  { "agg1" : {"terms": { "field": key, "size" : 50000} }}
+        else:
+            print "Unknown / Unspecified ES version in nxapi.json : {0}".format(self.cfg["elastic"].get("version", "#UNDEFINED"))
+            sys.exit(1)
+
         res = self.search(esq)
-        for x in res['facets']['facet_results']['terms']:
-            if x['term'] not in uniques:
-                uniques.append(x['term'])
+        if self.cfg["elastic"].get("version", None) == "1":
+            for x in res['facets']['facet_results']['terms']:
+                if x['term'] not in uniques:
+                    uniques.append(x['term'])
+        elif self.cfg["elastic"].get("version", None) == "2":
+            for x in res['aggregations']['agg1']['buckets']:
+                if x['key'] not in uniques:
+                    uniques.append(x['key'])
+        else:
+            print "Unknown / Unspecified ES version in nxapi.json : {0}".format(self.cfg["elastic"].get("version", "#UNDEFINED"))
+            sys.exit(1)
+            
         return { 'list' : uniques, 'total' :  len(uniques) }
     def index(self, body, eid):
         return self.es.index(index=self.cfg["elastic"]["index"], doc_type=self.cfg["elastic"]["doctype"], body=body, id=eid)
@@ -598,7 +661,6 @@ class NxTranslate():
                 body['comments'] += ","+msg+":"+str(datetime.datetime.now())
                 body['whitelisted'] = "true"
                 if tag is True:
-#                    print "Tagging id: "+eid
                     self.index(body, eid)
                 else:
                     print eid+",",
@@ -607,7 +669,11 @@ class NxTranslate():
             if total_events - count < size:
                 size = total_events - count
         print ""
-        return count
+        #--
+        if not tag or tag is False:
+            return 0
+        else:
+            return count
 
 
     def gen_wl(self, tpl, rule={}):

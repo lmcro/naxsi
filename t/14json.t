@@ -10,8 +10,10 @@ $ENV{TEST_NGINX_SERVROOT} = server_root();
 run_tests();
 __DATA__
 === JSON0 : Valid JSON
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
          SecRulesEnabled;
@@ -57,8 +59,10 @@ use URI::Escape;
 "
 --- error_code: 200
 === JSON1 : invalid JSON (double closing ']')
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
          SecRulesEnabled;
@@ -107,8 +111,10 @@ use URI::Escape;
 
 
 === JSON2 : invalid JSON (missing closing ']')
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
          SecRulesEnabled;
@@ -154,8 +160,10 @@ use URI::Escape;
 "
 --- error_code: 412
 === JSON3 : invalid JSON (closing array with '}' instead of ']')
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
          SecRulesEnabled;
@@ -201,8 +209,10 @@ use URI::Escape;
 "
 --- error_code: 412
 === JSON4 : invalid JSON (Missing final closing '}')
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
          SecRulesEnabled;
@@ -249,8 +259,10 @@ use URI::Escape;
 --- error_code: 412
 
 === JSON5 : invalid JSON (Extra closing '}')
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
          SecRulesEnabled;
@@ -296,8 +308,10 @@ use URI::Escape;
 }}"
 --- error_code: 412
 === JSON6 : invalid JSON (Missing ',' in array)
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
          SecRulesEnabled;
@@ -343,8 +357,10 @@ use URI::Escape;
 }"
 --- error_code: 412
 === JSON7 : Valid JSON with empty array item (Extra ',' in array)
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
          SecRulesEnabled;
@@ -390,8 +406,10 @@ use URI::Escape;
 }"
 --- error_code: 200
 === JSON8 : valid JSON - too deep !
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
          SecRulesEnabled;
@@ -415,8 +433,10 @@ use URI::Escape;
 {{{{{{{{{{{{[\"lol\"]}}}}}}}}}}}}"
 --- error_code: 412
 === JSON9 : Valid JSON with ev0l stuff (array => var content)
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
          SecRulesEnabled;
@@ -462,8 +482,10 @@ use URI::Escape;
 }"
 --- error_code: 412
 === JSON10 : Valid JSON with ev0l stuff (array => var name)
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
          SecRulesEnabled;
@@ -509,8 +531,10 @@ use URI::Escape;
 }"
 --- error_code: 412
 === JSON11 : Empty JSON object
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
          SecRulesEnabled;
@@ -536,8 +560,10 @@ use URI::Escape;
 }"
 --- error_code: 200
 === JSON12 : malformed (closing object before array) Json 
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
          SecRulesEnabled;
@@ -563,8 +589,10 @@ use URI::Escape;
 }"
 --- error_code: 412
 === JSON12 : malformed (unescaped quotes) 
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 location / {
          SecRulesEnabled;
@@ -591,8 +619,10 @@ use URI::Escape;
 --- error_code: 412
 
 === JSON12 : escaped quotes 
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 set $naxsi_extensive_log 1;
 location / {
@@ -620,8 +650,10 @@ use URI::Escape;
 }"
 --- error_code: 200
 === JSON13 : concatenation attempt (ie "foo":"bar"+eval(evil)+"foo")
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 set $naxsi_extensive_log 1;
 location / {
@@ -648,8 +680,10 @@ use URI::Escape;
 }"
 --- error_code: 412
 === JSON13 : concatenation attempt (ie "foo":"bar"+eval(evil)+"foo")
+--- main_config
+load_module /tmp/naxsi_ut/modules/ngx_http_naxsi_module.so;
 --- http_config
-include /etc/nginx/naxsi_core.rules;
+include /tmp/naxsi_ut/naxsi_core.rules;
 --- config
 set $naxsi_extensive_log 1;
 location / {

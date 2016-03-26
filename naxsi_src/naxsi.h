@@ -1,6 +1,6 @@
 /*
  * NAXSI, a web application firewall for NGINX
- * Copyright (C) 2011, Thibault 'bui' Koechlin
+ * Copyright (C) 2016, Thibault 'bui' Koechlin
  *  
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,7 +32,7 @@
 #ifndef __FOO_H__
 #define __FOO_H__
 
-#define NAXSI_VERSION "0.54"
+#define NAXSI_VERSION "0.55rc1"
 
 #include <nginx.h>
 #include <ngx_config.h>
@@ -49,11 +49,58 @@
 
 extern ngx_module_t ngx_http_naxsi_module;
 
-#ifdef whitelist_debug
-    #define naxsi_whitelist_debug(...)
+#ifdef _debug_whitelist
+    #define naxsi__debug_whitelist(...)
 #else
-    #define naxsi_whitelist_debug(...) ngx_log_debug(NGX_LOG_DEBUG_HTTP, req->connection->log, 0, __VA_ARGS__)
+    #define naxsi__debug_whitelist(...) ngx_log_debug(NGX_LOG_DEBUG_HTTP, req->connection->log, 0, __VA_ARGS__)
 #endif
+
+
+/*
+** as the #ifdef #endif for debug are getting really messy ...
+** Bellow are all the possibles debug defines. To enable associated feature
+** debug, just set it to 1. Do not comment the actual define except if you
+** know all the associated debug calls are deleted.
+** The idea is that the compiler will optimize out the do { if (0) ... } while (0);
+*/
+
+#define _naxsi_rawbody 0
+#define _debug_basestr_ruleset 0
+#define _debug_custom_score 0
+#define _debug_body_parse 0
+#define _debug_cfg_parse_one_rule 0
+#define _debug_zone 0
+#define _debug_extensive_log 0
+#define _debug_loc_conf 0
+#define _debug_main_conf 0
+#define _debug_mechanics 0
+#define _debug_mechanics 0
+#define _debug_json 0
+#define _debug_modifier 0
+#define _debug_payload_handler 0
+#define _debug_post_heavy 0
+#define _debug_rawbody 0
+#define _debug_readconf 0
+#define _debug_rx 0
+#define _debug_score 0
+#define _debug_spliturl_ruleset 0
+#define _debug_whitelist 0
+#define _debug_whitelist_heavy 0
+#define _debug_whitelist_light 0
+#define wl_debug_rx 0
+
+#ifndef __NAXSI_DEBUG
+#define __NAXSI_DEBUG
+#define NX_DEBUG(FEATURE, DEF, LOG, ST, ...) do { if (FEATURE)  ngx_log_debug(DEF, LOG, ST, __VA_ARGS__); } while (0)
+#endif
+
+#ifndef __NAXSI_LOG_DEBUG
+#define __NAXSI_LOG_DEBUG
+#define NX_LOG_DEBUG(FEATURE, DEF, LOG, ST, ...) do { if (FEATURE)  ngx_conf_log_error(DEF, LOG, ST, __VA_ARGS__); } while (0)
+#endif
+
+
+
 
 
 /*
@@ -85,6 +132,7 @@ enum DUMMY_MATCH_ZONE {
   URL,
   ARGS,
   BODY,
+  RAW_BODY,
   FILE_EXT,
   UNKNOWN
 };
@@ -187,6 +235,7 @@ typedef struct
   ngx_int_t			zone;
   /* match in full body (POST DATA) */
   ngx_flag_t		body:1;
+  ngx_flag_t		raw_body:1;
   ngx_flag_t		body_var:1;
   /* match in all headers */
   ngx_flag_t		headers:1;
@@ -287,6 +336,8 @@ typedef struct
   ngx_array_t	*body_rules;
   ngx_array_t	*header_rules;
   ngx_array_t	*generic_rules; 
+  ngx_array_t	*raw_body_rules;
+  
   ngx_array_t	*locations; /*ngx_http_dummy_loc_conf_t*/
   ngx_log_t	*log;
   
@@ -296,8 +347,12 @@ typedef struct
 /* TOP level configuration structure */
 typedef struct
 {
+  /*
+  ** basicrule / mainrules, sorted by target zone
+  */
   ngx_array_t	*get_rules;
   ngx_array_t	*body_rules;
+  ngx_array_t	*raw_body_rules;
   ngx_array_t	*header_rules;
   ngx_array_t	*generic_rules;
   ngx_array_t	*check_rules;
