@@ -1,38 +1,13 @@
 /*
  * NAXSI, a web application firewall for NGINX
- * Copyright (C) 2016, Thibault 'bui' Koechlin
- *  
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- * 
- * In addition, as a special exception, the copyright holders give
- * permission to link the code of portions of this program with the
- * OpenSSL library under certain conditions as described in each
- * individual source file, and distribute linked combinations
- * including the two.
- * You must obey the GNU General Public License in all respects
- * for all of the code used other than OpenSSL.  If you modify
- * file(s) with this exception, you may extend this exception to your
- * version of the file(s), but you are not obligated to do so.  If you
- * do not wish to do so, delete this exception statement from your
- * version.  If you delete this exception statement from all source
- * files in the program, then also delete it here.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright (C) NBS System – All Rights Reserved
+ * Licensed under GNU GPL v3.0 – See the LICENSE notice for details
  */
 
 #ifndef __FOO_H__
 #define __FOO_H__
 
-#define NAXSI_VERSION "0.55rc1"
+#define NAXSI_VERSION "0.56"
 
 #include <nginx.h>
 #include <ngx_config.h>
@@ -48,13 +23,6 @@
 
 
 extern ngx_module_t ngx_http_naxsi_module;
-
-#ifdef _debug_whitelist
-    #define naxsi__debug_whitelist(...)
-#else
-    #define naxsi__debug_whitelist(...) ngx_log_debug(NGX_LOG_DEBUG_HTTP, req->connection->log, 0, __VA_ARGS__)
-#endif
-
 
 /*
 ** as the #ifdef #endif for debug are getting really messy ...
@@ -74,7 +42,6 @@ extern ngx_module_t ngx_http_naxsi_module;
 #define _debug_loc_conf 0
 #define _debug_main_conf 0
 #define _debug_mechanics 0
-#define _debug_mechanics 0
 #define _debug_json 0
 #define _debug_modifier 0
 #define _debug_payload_handler 0
@@ -84,6 +51,7 @@ extern ngx_module_t ngx_http_naxsi_module;
 #define _debug_rx 0
 #define _debug_score 0
 #define _debug_spliturl_ruleset 0
+#define _debug_whitelist_compat 0
 #define _debug_whitelist 0
 #define _debug_whitelist_heavy 0
 #define _debug_whitelist_light 0
@@ -120,6 +88,21 @@ extern ngx_module_t ngx_http_naxsi_module;
 ** as whitelists. (whitelists is just a 'kind' of rule).
 **
 */
+
+/*
+** basic rule can have 4 (so far) kind of matching mechanisms
+** RX
+** STR
+** LIBINJ_XSS
+** LIBINJ_SQL
+*/
+enum DETECT_MECHANISM  {
+  NONE = -1,
+  RX,
+  STR,
+  LIBINJ_XSS,
+  LIBINJ_SQL
+};
 
 enum MATCH_TYPE {
   URI_ONLY=0,
@@ -170,8 +153,6 @@ typedef struct
 **	- one or several rules id to whitelist
 */
 
-#define WEIRD_REQUEST_INTERNAL_RULE_ID 1
-#define BIG_BODY_INTERNAL_RULE_ID 2
 typedef struct
 {
   /* match in full body (POST DATA) */
@@ -230,9 +211,15 @@ typedef struct
 {
   ngx_str_t		*str; // string
   ngx_regex_compile_t   *rx;  // or regex
-  ngx_int_t		rx_mz;
+  /*
+  ** basic rule can have 4 (so far) kind of matching mechanisms :
+  ** RX, STR, LIBINJ_XSS, LIBINJ_SQL
+  */
+  enum DETECT_MECHANISM match_type;
+  /* is the match zone a regex or a string (hashtable) */
+  ngx_int_t		rx_mz; 
   /* ~~~~~ match zones ~~~~~~ */
-  ngx_int_t			zone;
+  ngx_int_t		zone;
   /* match in full body (POST DATA) */
   ngx_flag_t		body:1;
   ngx_flag_t		raw_body:1;
@@ -498,6 +485,8 @@ typedef struct ngx_http_nx_json_s {
 #define STR_T "str:"
 #define MATCH_ZONE_T "mz:"
 #define WHITELIST_T "wl:"
+#define LIBINJ_XSS_T "d:libinj_xss"
+#define LIBINJ_SQL_T "d:libinj_sql"
 #define NEGATIVE_T  "negative"
 
 /* 
@@ -534,6 +523,7 @@ ngx_int_t		ngx_http_output_forbidden_page(ngx_http_request_ctx_t *ctx,
 						       ngx_http_request_t *r);
 int			nx_check_ids(ngx_int_t match_id, ngx_array_t *wl_ids);
 int			naxsi_unescape(ngx_str_t *str);
+u_int			naxsi_escape_nullbytes(ngx_str_t *str);
 
 void			ngx_http_dummy_json_parse(ngx_http_request_ctx_t *ctx, 
 						  ngx_http_request_t	 *r,

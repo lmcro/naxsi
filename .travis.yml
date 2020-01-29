@@ -1,41 +1,42 @@
-language: perl
-perl: 5.20-shrplib
+dist: xenial
+language: C
+
+os:
+  - linux
 
 cache:
   - apt
   - pip
 
 env:
-  - VER_NGINX=1.9.11
+  global:
+    - VER_NGINX=1.9.11
+    - COV=0
+
+compiler:
+  - clang
+  - gcc
 
 addons:
   apt:
     packages:
     - lcov
+    - cpanminus
 
 install:
-  - pip install --user codecov
-  - mkdir -p /tmp/naxsi_ut//
-  - cp naxsi_config/naxsi_core.rules /tmp/naxsi_ut/
-  - wget "http://nginx.org/download/nginx-${VER_NGINX}.tar.gz"
-  - tar -xf "nginx-${VER_NGINX}.tar.gz"
-  - cd "nginx-${VER_NGINX}"
-  - ./configure --with-cc-opt="--coverage" --with-ld-opt="-lgcov" --conf-path=/tmp/naxsi_ut/nginx.conf --add-dynamic-module=../naxsi_src/ --error-log-path=/tmp/naxsi_ut/error.log  --http-client-body-temp-path=/tmp/naxsi_ut/body/ --http-fastcgi-temp-path=/tmp/naxsi_ut/fastcgi/ --http-log-path=/tmp/naxsi_ut/access.log --http-proxy-temp-path=/tmp/naxsi_ut/proxy/ --lock-path=/tmpnginx.lock --pid-path=/tmp/naxsi_ut/nginx.pid --with-http_ssl_module --without-mail_pop3_module --without-mail_smtp_module --without-mail_imap_module --without-http_uwsgi_module --without-http_scgi_module --with-ipv6  --prefix=/tmp --modules-path=/tmp/naxsi_ut/modules/
+  - gem install coveralls-lcov
+  - cd ./naxsi_src
+  - if [ "$CC" == "clang" ]; then COV=0; fi
   - make
-  - ls -alR .
-  - make install
-  - export PATH=$PATH":/tmp/sbin/"
-  - cd ../naxsi_src
-  - make deploy
-  - cpanm -v --notest Test::Nginx
+  - sudo cpanm -v --notest Test::Nginx
 
 before_script:
   - lcov --directory "../nginx-${VER_NGINX}" --zerocounters
 
 script: make test
 
-after_success:
- - lcov --directory  "../nginx-${VER_NGINX}/objs/addon/naxsi_src/" --capture --output-file naxsi.lcov --base-directory "../nginx-${VER_NGINX}/"
- - lcov --list naxsi.lcov
- - bash <(curl -s https://codecov.io/bash)
+after_failure: 
+ - cat ../t/servroot/logs/error.log
+ - cat /tmp/ngx_error.log
+ - cat /tmp/ngx_access.log
 

@@ -1,32 +1,7 @@
 /*
  * NAXSI, a web application firewall for NGINX
- * Copyright (C) 2016, Thibault 'bui' Koechlin
- *  
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- * 
- * In addition, as a special exception, the copyright holders give
- * permission to link the code of portions of this program with the
- * OpenSSL library under certain conditions as described in each
- * individual source file, and distribute linked combinations
- * including the two.
- * You must obey the GNU General Public License in all respects
- * for all of the code used other than OpenSSL.  If you modify
- * file(s) with this exception, you may extend this exception to your
- * version of the file(s), but you are not obligated to do so.  If you
- * do not wish to do so, delete this exception statement from your
- * version.  If you delete this exception statement from all source
- * files in the program, then also delete it here.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright (C) NBS System – All Rights Reserved
+ * Licensed under GNU GPL v3.0 – See the LICENSE notice for details
  */
 
 #include "naxsi.h"
@@ -75,21 +50,116 @@ strfaststr(unsigned char *haystack, unsigned int hl,
       else {
 	  if (found+nl >= end)
 	    break;
-	  if (found+nl < end)
+	  if (found+nl < end) {
+	    /* the haystack is shrinking */
 	    cpt = found+1;
+	    hl = (unsigned int) (end - cpt);
+	  }
 	}
     }
   return (NULL);
 }
 
-/* unescape routine, returns number of nullbytes present */
+u_int naxsi_escape_nullbytes(ngx_str_t *str) {
+  
+  size_t i = 0;
+  u_int nullbytes = 0;
+
+  for (i = 0; i < str->len; i++) {
+    if (str->data[i] == 0) {
+      str->data[i] = '0';
+      nullbytes++;
+    }
+  }
+  return nullbytes;  
+}
+
+/*
+** Shamelessly ripped off from https://www.cl.cam.ac.uk/~mgk25/ucs/utf8_check.c
+** and adapted to ngx_str_t
+*/
+unsigned char *ngx_utf8_check(ngx_str_t *str)
+{
+  unsigned int offset = 0;
+  unsigned char *s;
+
+  s = str->data;
+  
+  while (offset < str->len && *s) {
+    if (*s < 0x80) {
+      /* 0xxxxxxx */
+      s++;
+      offset++;
+    }
+    else if ((s[0] & 0xe0) == 0xc0) {
+      if (offset+1 >= str->len) {
+	//not enough bytes
+	return s;
+      }
+      /* 110XXXXx 10xxxxxx */
+      if ((s[1] & 0xc0) != 0x80 ||
+	  (s[0] & 0xfe) == 0xc0) {                        /* overlong? */ 
+	return s;
+      }
+      else {
+	s += 2;
+	offset += 2;
+      }
+    }
+    else if ((s[0] & 0xf0) == 0xe0) {
+      if (offset+2 >= str->len) {
+	//not enough bytes
+	return s;
+      }
+      /* 1110XXXX 10Xxxxxx 10xxxxxx */
+      if ((s[1] & 0xc0) != 0x80 ||
+	  (s[2] & 0xc0) != 0x80 ||
+	  (s[0] == 0xe0 && (s[1] & 0xe0) == 0x80) ||    /* overlong? */
+	  (s[0] == 0xed && (s[1] & 0xe0) == 0xa0) ||    /* surrogate? */
+	  (s[0] == 0xef && s[1] == 0xbf &&
+	   (s[2] & 0xfe) == 0xbe))                      /* U+FFFE or U+FFFF? */
+	return s;
+      else
+	s += 3;
+    }
+    else if ((s[0] & 0xf8) == 0xf0) {
+      if (offset+3 >= str->len) {
+	//not enough bytes
+	return s;
+      }
+      /* 11110XXX 10XXxxxx 10xxxxxx 10xxxxxx */
+      if ((s[1] & 0xc0) != 0x80 ||
+	  (s[2] & 0xc0) != 0x80 ||
+	  (s[3] & 0xc0) != 0x80 ||
+	  (s[0] == 0xf0 && (s[1] & 0xf0) == 0x80) ||    /* overlong? */
+	  (s[0] == 0xf4 && s[1] > 0x8f) || s[0] > 0xf4) { /* > U+10FFFF? */
+	return s;
+      }
+      else {
+	s += 4;
+      }
+    }
+    else {
+      return s;
+    }
+  }
+  return NULL;
+}
+
+
+/* 
+   unescape routine returns a sum of :
+ - number of nullbytes present 
+ - number of invalid url-encoded characters
+*/
 int naxsi_unescape(ngx_str_t *str) {
   u_char *dst, *src;
   u_int nullbytes = 0, bad = 0, i;
   
   dst = str->data;
   src = str->data;
-      
+
+  
   bad = naxsi_unescape_uri(&src, &dst,
 			   str->len, 0);      
   str->len =  src - str->data;
@@ -102,7 +172,6 @@ int naxsi_unescape(ngx_str_t *str) {
       }
   return (nullbytes+bad);
 }
-
 
 /*
 ** Patched ngx_unescape_uri : 
@@ -134,13 +203,6 @@ naxsi_unescape_uri(u_char **dst, u_char **src, size_t size, ngx_uint_t type)
 
         switch (state) {
         case sw_usual:
-            if (ch == '?'
-                && (type & (NGX_UNESCAPE_URI|NGX_UNESCAPE_REDIRECT)))
-            {
-                *d++ = ch;
-                goto done;
-            }
-
             if (ch == '%') {
                 state = sw_quoted;
                 break;
@@ -178,17 +240,6 @@ naxsi_unescape_uri(u_char **dst, u_char **src, size_t size, ngx_uint_t type)
             if (ch >= '0' && ch <= '9') {
                 ch = (u_char) ((decoded << 4) + ch - '0');
 
-                if (type & NGX_UNESCAPE_REDIRECT) {
-                    if (ch > '%' && ch < 0x7f) {
-                        *d++ = ch;
-                        break;
-                    }
-
-                    *d++ = '%'; *d++ = *(s - 2); *d++ = *(s - 1);
-
-                    break;
-                }
-
                 *d++ = ch;
 
                 break;
@@ -198,31 +249,6 @@ naxsi_unescape_uri(u_char **dst, u_char **src, size_t size, ngx_uint_t type)
             if (c >= 'a' && c <= 'f') {
                 ch = (u_char) ((decoded << 4) + c - 'a' + 10);
 
-                if (type & NGX_UNESCAPE_URI) {
-                    if (ch == '?') {
-                        *d++ = ch;
-                        goto done;
-                    }
-
-                    *d++ = ch;
-                    break;
-                }
-
-                if (type & NGX_UNESCAPE_REDIRECT) {
-                    if (ch == '?') {
-                        *d++ = ch;
-                        goto done;
-                    }
-
-                    if (ch > '%' && ch < 0x7f) {
-                        *d++ = ch;
-                        break;
-                    }
-
-                    *d++ = '%'; *d++ = *(s - 2); *d++ = *(s - 1);
-                    break;
-                }
-
                 *d++ = ch;
 
                 break;
@@ -231,15 +257,13 @@ naxsi_unescape_uri(u_char **dst, u_char **src, size_t size, ngx_uint_t type)
 	    /* as it happened in the 2nd part of quoted character, 
 	       we need to restore the decoded char as well. */
 	    *d++ = '%';
-	    *d++ = (0 >= decoded && decoded < 10) ? decoded + '0' : 
-	      decoded - 10 + 'a';
-	    *d++ = ch;
+	    *d++ = *(s - 2);
+	    *d++ = *(s - 1);
 	    bad++;
             break;
         }
     }
 
-done:
 
     *dst = d;
     *src = s;
@@ -699,7 +723,7 @@ ngx_http_dummy_create_hashtables_n(ngx_http_dummy_loc_conf_t *dlc,
 					 sizeof(ngx_http_rule_t *));
 	if (!dlc->rxmz_wlr) return (NGX_ERROR); /* LCOV_EXCL_LINE */
       }
-      if (name_idx != -1) {
+      if (name_idx != -1 && !custloc_array(curr_r->br->custom_locations->elts)[name_idx].target_rx) {
 	custloc_array(curr_r->br->custom_locations->elts)[name_idx].target_rx = 
 	  ngx_pcalloc(cf->pool, sizeof(ngx_regex_compile_t));
 	rgc = custloc_array(curr_r->br->custom_locations->elts)[name_idx].target_rx;
@@ -712,7 +736,7 @@ ngx_http_dummy_create_hashtables_n(ngx_http_dummy_loc_conf_t *dlc,
 	if (ngx_regex_compile(rgc) != NGX_OK)
 	  return (NGX_ERROR);
       }
-      if (uri_idx != -1) {
+      if (uri_idx != -1 && !custloc_array(curr_r->br->custom_locations->elts)[uri_idx].target_rx) {
 	custloc_array(curr_r->br->custom_locations->elts)[uri_idx].target_rx = 
 	  ngx_pcalloc(cf->pool, sizeof(ngx_regex_compile_t));
 	rgc = custloc_array(curr_r->br->custom_locations->elts)[uri_idx].target_rx;
@@ -798,32 +822,32 @@ void naxsi_log_offending(ngx_str_t *name, ngx_str_t *val, ngx_http_request_t *re
   
   //encode uri
   tmp_uri.len = req->uri.len + (2 * ngx_escape_uri(NULL, req->uri.data, req->uri.len,
-						   NGX_ESCAPE_ARGS));
+						   NGX_ESCAPE_URI_COMPONENT));
   tmp_uri.data = ngx_pcalloc(req->pool, tmp_uri.len+1);
   if (tmp_uri.data == NULL)
     return ;
-  ngx_escape_uri(tmp_uri.data, req->uri.data, req->uri.len, NGX_ESCAPE_ARGS);
+  ngx_escape_uri(tmp_uri.data, req->uri.data, req->uri.len, NGX_ESCAPE_URI_COMPONENT);
   //encode val
   if (val->len <= 0)
     tmp_val = empty;
   else {
     tmp_val.len = val->len + (2 * ngx_escape_uri(NULL, val->data, val->len,
-						 NGX_ESCAPE_ARGS));
+						 NGX_ESCAPE_URI_COMPONENT));
     tmp_val.data = ngx_pcalloc(req->pool, tmp_val.len+1);
     if (tmp_val.data == NULL)
       return ;
-    ngx_escape_uri(tmp_val.data, val->data, val->len, NGX_ESCAPE_ARGS);
+    ngx_escape_uri(tmp_val.data, val->data, val->len, NGX_ESCAPE_URI_COMPONENT);
   }
   //encode name
   if (name->len <= 0)
     tmp_name = empty;
   else {
     tmp_name.len = name->len + (2 * ngx_escape_uri(NULL, name->data, name->len,
-						   NGX_ESCAPE_ARGS));
+						   NGX_ESCAPE_URI_COMPONENT));
     tmp_name.data = ngx_pcalloc(req->pool, tmp_name.len+1);
     if (tmp_name.data == NULL)
       return ;
-    ngx_escape_uri(tmp_name.data, name->data, name->len, NGX_ESCAPE_ARGS);
+    ngx_escape_uri(tmp_name.data, name->data, name->len, NGX_ESCAPE_URI_COMPONENT);
   }
   
   ngx_log_error(NGX_LOG_ERR, req->connection->log, 0, 

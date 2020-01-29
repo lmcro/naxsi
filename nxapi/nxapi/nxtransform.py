@@ -252,7 +252,7 @@ class NxTranslate():
         output.append("#Rule ({0}) {1}\n".format(rid, self.core_msg.get(rid, 'Unknown ..')))
         if self.cfg["output"]["verbosity"] >= 4:
             output.append("#total hits {0}\n".format(full_wl['total_hits']))
-            for x in ["content", "peers", "uri", "var_name"]:
+            for x in ["content", "peers", "country", "uri", "var_name"]:
                 if x not in full_wl.keys():
                     continue
                 for y in full_wl[x]:
@@ -541,7 +541,7 @@ class NxTranslate():
             template[field] = x
         if self.cfg["elastic"].get("version", None) == "1":
             esq['facets'] =  { "facet_results" : {"terms": { "field": field, "size" : self.es_max_size} }}
-        elif self.cfg["elastic"].get("version", None) == "2":
+        elif self.cfg["elastic"].get("version", None) in ["2", "5"]:
             esq['aggregations'] =  { "agg1" : {"terms": { "field": field, "size" : self.es_max_size} }}
         else:
             print "Unknown / Unspecified ES version in nxapi.json : {0}".format(self.cfg["elastic"].get("version", "#UNDEFINED"))
@@ -551,7 +551,7 @@ class NxTranslate():
 
         if self.cfg["elastic"].get("version", None) == "1":
             total = res['facets']['facet_results']['total']
-        elif self.cfg["elastic"].get("version", None) == "2":
+        elif self.cfg["elastic"].get("version", None) in ["2", "5"]:
             total = res['hits']['total']
         else:
             print "Unknown / Unspecified ES version in nxapi.json : {0}".format(self.cfg["elastic"].get("version", "#UNDEFINED"))
@@ -565,7 +565,7 @@ class NxTranslate():
                 count += 1
                 if count > limit:
                     break
-        elif self.cfg["elastic"].get("version", None) == "2":
+        elif self.cfg["elastic"].get("version", None) in ["2", "5"]:
             for x in res['aggregations']['agg1']['buckets']:
                 ret.append('{0} {1}% (total: {2}/{3})'.format(x['key'], round((float(x['doc_count']) / total) * 100, 2), x['doc_count'], total))
                 count += 1
@@ -584,7 +584,7 @@ class NxTranslate():
         #
         if self.cfg["elastic"].get("version", None) == "1":
             esq['facets'] =  { "facet_results" : {"terms": { "field": key, "size" : 50000} }}
-        elif self.cfg["elastic"].get("version", None) == "2":
+        elif self.cfg["elastic"].get("version", None) in ["2", "5"]:
             esq['aggregations'] =  { "agg1" : {"terms": { "field": key, "size" : 50000} }}
         else:
             print "Unknown / Unspecified ES version in nxapi.json : {0}".format(self.cfg["elastic"].get("version", "#UNDEFINED"))
@@ -595,7 +595,7 @@ class NxTranslate():
             for x in res['facets']['facet_results']['terms']:
                 if x['term'] not in uniques:
                     uniques.append(x['term'])
-        elif self.cfg["elastic"].get("version", None) == "2":
+        elif self.cfg["elastic"].get("version", None) in ["2", "5"]:
             for x in res['aggregations']['agg1']['buckets']:
                 if x['key'] not in uniques:
                     uniques.append(x['key'])
@@ -647,13 +647,17 @@ class NxTranslate():
         total_events = int(str(x["hits"]["total"]))
         print str(self.grn.format(total_events)) + " items to be tagged ..."
         size = int(x['hits']['total'])
-        if size > 100:
+        if size > 20000:
+            size = size / 100
+        elif size > 100:
             size = size / 10
         while count < total_events:
             esq["size"] = size
             esq["from"] = 0
             res = self.search(esq)
             # Iterate through matched evts to tag them.
+            if int(res['hits']['total']) == 0:
+                break
             for item in res['hits']['hits']:
                 eid = item['_id']
                 body = item['_source']
@@ -717,12 +721,15 @@ class NxTranslate():
         if res['hits']['total'] > 0:
             clist = []
             peers = []
+            country = []
             uri = []
             var_name = []
 
             for x in res['hits']['hits']:
                 if len(x.get("_source").get("ip", "")) > 0 and x.get("_source").get("ip", "") not in peers:
                     peers.append(x["_source"]["ip"])
+                if len(x.get("_source").get("country", "")) > 0 and x.get("_source").get("country", "") not in country:
+                    country.append(x["_source"]["country"])
                 if len(x.get("_source").get("uri", "")) > 0 and x.get("_source").get("uri", "") not in uri:
                     uri.append(x["_source"]["uri"])
                 if len(x.get("_source").get("var_name", "")) > 0 and x.get("_source").get("var_name", "") not in var_name:
@@ -731,7 +738,7 @@ class NxTranslate():
                     clist.append(x["_source"]["content"])
                     if len(clist) >= 5:
                         break
-            retlist.append({'rule' : rule, 'content' : clist[:5], 'total_hits' : res['hits']['total'], 'peers' : peers[:5], 'uri' : uri[:5],
+            retlist.append({'rule' : rule, 'content' : clist[:5], 'total_hits' : res['hits']['total'], 'peers' : peers[:5], 'country' : country[:5], 'uri' : uri[:5],
                             'var_name' : var_name[:5]})
             return retlist
         return []
